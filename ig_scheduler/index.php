@@ -329,10 +329,19 @@ nav a.active .badge { background: #555; color: #fff; }
 .create-form textarea { min-height: 100px; resize: vertical; }
 .create-form .preview-img { max-width: 200px; max-height: 250px; border-radius: 6px; margin-bottom: 12px; display: none; }
 .btn-create { background: #2a4a2a; color: #7c7; font-size: 13px; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; }
-.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 100; align-items: center; justify-content: center; }
+.thumbs { display: flex; gap: 4px; padding: 4px 6px; }
+.thumbs img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; opacity: 0.7; cursor: pointer; }
+.thumbs img:first-child { opacity: 1; }
+.thumbs .more { width: 40px; height: 40px; background: #333; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #aaa; }
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 8px; }
 .lightbox.active { display: flex; }
-.lightbox img { max-height: 90vh; max-width: 90vw; object-fit: contain; border-radius: 8px; }
-.lightbox .close { position: absolute; top: 16px; right: 20px; font-size: 28px; cursor: pointer; color: #fff; }
+.lightbox img { max-height: 85vh; max-width: 90vw; object-fit: contain; border-radius: 8px; }
+.lightbox .close { position: absolute; top: 16px; right: 20px; font-size: 28px; cursor: pointer; color: #fff; z-index: 101; }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); font-size: 36px; color: #fff; cursor: pointer; user-select: none; padding: 20px; opacity: 0.7; }
+.lb-nav:hover { opacity: 1; }
+.lb-prev { left: 10px; }
+.lb-next { right: 10px; }
+.lb-counter { font-size: 12px; color: #888; }
 </style>
 </head>
 <body>
@@ -383,14 +392,25 @@ nav a.active .badge { background: #555; color: #fff; }
       $acct_name = $post['account_name'] ?? '';
       $permalink = $post['permalink'] ?? '';
     ?>
+    <?php $imgs_json = htmlspecialchars(json_encode($imgs), ENT_QUOTES); ?>
     <div class="card">
       <?php if ($img): ?>
         <div style="position:relative">
-          <img src="<?= htmlspecialchars($img) ?>" onclick="openLb(this.src)" loading="lazy">
+          <img src="<?= htmlspecialchars($img) ?>" onclick='openLb(<?= $imgs_json ?>, 0)' loading="lazy">
           <?php if (count($imgs) > 1): ?>
             <span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;"><?= count($imgs) ?>枚</span>
           <?php endif; ?>
         </div>
+        <?php if (count($imgs) > 1): ?>
+        <div class="thumbs">
+          <?php foreach (array_slice($imgs, 0, 3) as $ti => $thumb): ?>
+            <img src="<?= htmlspecialchars($thumb) ?>" onclick='openLb(<?= $imgs_json ?>, <?= $ti ?>)' loading="lazy">
+          <?php endforeach; ?>
+          <?php if (count($imgs) > 3): ?>
+            <div class="more" onclick='openLb(<?= $imgs_json ?>, 3)'>+<?= count($imgs) - 3 ?></div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
       <?php endif; ?>
       <div class="body">
         <?php if ($acct_name): ?><div class="meta">@<?= htmlspecialchars($acct_name) ?></div><?php endif; ?>
@@ -433,13 +453,39 @@ nav a.active .badge { background: #555; color: #fff; }
 <?php endif; ?>
 </div>
 
-<div class="lightbox" id="lb" onclick="closeLb()">
-  <span class="close">✕</span>
+<div class="lightbox" id="lb" onclick="if(event.target===this)closeLb()">
+  <span class="close" onclick="closeLb()">✕</span>
+  <span class="lb-nav lb-prev" onclick="lbNav(-1)">‹</span>
   <img id="lb-img" src="">
+  <span class="lb-nav lb-next" onclick="lbNav(1)">›</span>
+  <div class="lb-counter" id="lb-counter"></div>
 </div>
 <script>
-function openLb(src) { document.getElementById('lb-img').src = src; document.getElementById('lb').classList.add('active'); }
+var lbImages = [], lbIdx = 0;
+function openLb(imgs, idx) {
+  lbImages = Array.isArray(imgs) ? imgs : [imgs];
+  lbIdx = idx || 0;
+  lbShow();
+  document.getElementById('lb').classList.add('active');
+}
 function closeLb() { document.getElementById('lb').classList.remove('active'); }
+function lbNav(dir) {
+  lbIdx = (lbIdx + dir + lbImages.length) % lbImages.length;
+  lbShow();
+}
+function lbShow() {
+  document.getElementById('lb-img').src = lbImages[lbIdx];
+  var counter = document.getElementById('lb-counter');
+  counter.textContent = lbImages.length > 1 ? (lbIdx + 1) + ' / ' + lbImages.length : '';
+  document.querySelector('.lb-prev').style.display = lbImages.length > 1 ? '' : 'none';
+  document.querySelector('.lb-next').style.display = lbImages.length > 1 ? '' : 'none';
+}
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('lb').classList.contains('active')) return;
+  if (e.key === 'ArrowLeft') lbNav(-1);
+  if (e.key === 'ArrowRight') lbNav(1);
+  if (e.key === 'Escape') closeLb();
+});
 function previewFiles(input) {
   var container = document.getElementById('previews');
   container.innerHTML = '';
