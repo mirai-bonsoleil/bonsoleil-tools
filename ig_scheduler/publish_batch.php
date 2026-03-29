@@ -1,4 +1,4 @@
-#!/usr/bin/env php
+#!/usr/local/php/8.1/bin/php
 <?php
 /**
  * ig_scheduler batch publisher
