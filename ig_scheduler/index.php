@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set("Asia/Tokyo");
 $accounts = require __DIR__ . "/config.php";
 if (empty($_SESSION["csrf_token"])) {
     $_SESSION["csrf_token"] = bin2hex(random_bytes(32));

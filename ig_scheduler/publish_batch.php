@@ -6,11 +6,12 @@
  * Usage: php publish_batch.php [--dry-run]
  */
 
+date_default_timezone_set("Asia/Tokyo");
 $dry_run = in_array("--dry-run", $argv ?? []);
 $base_dir = __DIR__;
 $data_dir = $base_dir . "/data";
 $accounts = require $base_dir . "/config.php";
-$now = new DateTimeImmutable("now", new DateTimeZone("Asia/Tokyo"));
+$now = new DateTimeImmutable();
 
 function save_stage($path, $data) {
     usort($data["posts"], function($a, $b) {
