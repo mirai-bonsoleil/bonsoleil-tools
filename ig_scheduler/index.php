@@ -161,7 +161,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit;
         }
 
-        // Step 2: Publish
+        // Step 2: Wait for container to be ready
+        for ($i = 0; $i < 10; $i++) {
+            sleep(2);
+            $ch = curl_init("https://graph.instagram.com/v22.0/{$creation_id}?fields=status_code&access_token={$tk}");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $status = json_decode(curl_exec($ch), true);
+            curl_close($ch);
+            if (($status["status_code"] ?? "") === "FINISHED") break;
+            if (($status["status_code"] ?? "") === "ERROR") {
+                header("Location: ?stage=schedule&error=" . urlencode("container error"));
+                exit;
+            }
+        }
+
+        // Step 3: Publish
         $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media_publish");
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
