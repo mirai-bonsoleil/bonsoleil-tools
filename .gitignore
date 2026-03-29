@@ -3,3 +3,4 @@ ig_hosting/*.jpg
 ig_hosting/*.webp
 ig_scheduler/data/*.json
 .htpasswd
+ig_scheduler/config.php
