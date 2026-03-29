@@ -118,6 +118,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "caption" => $caption,
             "image_urls" => $image_urls,
             "created_at" => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+            "scheduled_at" => trim($_POST["scheduled_at"] ?? "") ?: null,
         ];
         file_put_contents($draft_path, json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         header("Location: ?stage=draft");
@@ -373,6 +374,8 @@ nav a.active .badge { background: #555; color: #fff; }
       <div id="previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
       <label>キャプション</label>
       <textarea name="caption" placeholder="キャプションを入力..."></textarea>
+      <label>送信予定日時（任意）</label>
+      <input type="datetime-local" name="scheduled_at" style="width:100%;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:8px;font-size:13px;margin-bottom:12px;">
       <button class="btn-create" type="submit">ドラフト作成</button>
     </form>
   </div>
@@ -391,6 +394,7 @@ nav a.active .badge { background: #555; color: #fff; }
       $posted_at = $post['posted_at'] ?? '';
       $acct_name = $post['account_name'] ?? '';
       $permalink = $post['permalink'] ?? '';
+      $scheduled_at = $post['scheduled_at'] ?? '';
     ?>
     <?php $imgs_json = htmlspecialchars(json_encode($imgs), ENT_QUOTES); ?>
     <div class="card">
@@ -415,6 +419,7 @@ nav a.active .badge { background: #555; color: #fff; }
       <div class="body">
         <?php if ($acct_name): ?><div class="meta">@<?= htmlspecialchars($acct_name) ?></div><?php endif; ?>
         <div class="caption"><?= htmlspecialchars($cap) ?></div>
+        <?php if ($scheduled_at): ?><div class="meta" style="color:#d9a;">🕐 <?= htmlspecialchars($scheduled_at) ?></div><?php endif; ?>
         <?php if ($posted_at): ?><div class="meta">📅 <?= htmlspecialchars($posted_at) ?><?php if ($permalink): ?> · <a href="<?= htmlspecialchars($permalink) ?>" target="_blank" style="color:#7ad;text-decoration:none;">IG↗</a><?php endif; ?></div><?php endif; ?>
         <div class="actions">
           <?php foreach ($move_targets[$stage] as $target): ?>
