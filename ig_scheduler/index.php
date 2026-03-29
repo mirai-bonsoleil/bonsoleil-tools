@@ -8,7 +8,7 @@ $csrf_token = $_SESSION["csrf_token"];
 $stages = ["draft", "schedule", "posted"];
 $stage  = in_array($_GET["stage"] ?? "", $stages) ? $_GET["stage"] : "schedule";
 $data_dir = __DIR__ . "/data";
-$move_targets = ["draft" => ["schedule"], "schedule" => ["draft", "posted"], "posted" => []];
+$move_targets = ["draft" => ["schedule"], "schedule" => ["draft", "posted"], "posted" => ["schedule"]];
 
 // 移動処理
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -142,7 +142,7 @@ nav a.active .badge { background: #555; color: #fff; }
               <button class="btn btn-move" type="submit"><?= array_search($target, $stages) < array_search($stage, $stages) ? "←" : "→" ?> <?= $stage_labels[$target] ?></button>
             </form>
           <?php endforeach; ?>
-          <?php if ($stage !== 'posted'): ?>
+          <?php if (true): ?>
             <form method="post" style="display:inline" onsubmit="return confirm('削除しますか？')">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
               <input type="hidden" name="action" value="delete">
