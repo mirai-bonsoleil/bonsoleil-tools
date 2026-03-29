@@ -345,14 +345,17 @@ nav a.active .badge { background: #555; color: #fff; }
 .edit-form input[type="datetime-local"] { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 12px; margin-bottom: 6px; color-scheme: dark; }
 .edit-form .btn-save { background: #2a4a2a; color: #7c7; font-size: 11px; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; }
 .empty { color: #555; text-align: center; padding: 60px 0; font-size: 14px; }
-.create-form { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-.create-form h2 { font-size: 14px; color: #aaa; margin-bottom: 12px; }
-.create-form label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
-.create-form select,
-.create-form textarea,
-.create-form input[type="file"] { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 8px; font-size: 13px; margin-bottom: 12px; font-family: sans-serif; }
-.create-form textarea { min-height: 100px; resize: vertical; }
-.create-form .preview-img { max-width: 200px; max-height: 250px; border-radius: 6px; margin-bottom: 12px; display: none; }
+.btn-new-draft { background: #2a4a2a; color: #7c7; font-size: 13px; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 12px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; width: 90%; max-width: 480px; max-height: 90vh; overflow-y: auto; position: relative; }
+.modal h2 { font-size: 15px; color: #ccc; margin-bottom: 14px; }
+.modal .close { position: absolute; top: 12px; right: 16px; font-size: 22px; cursor: pointer; color: #888; }
+.modal label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+.modal select,
+.modal textarea,
+.modal input[type="file"] { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 8px; font-size: 13px; margin-bottom: 12px; font-family: sans-serif; }
+.modal textarea { min-height: 100px; resize: vertical; }
 .btn-create { background: #2a4a2a; color: #7c7; font-size: 13px; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; }
 .thumbs { display: flex; gap: 4px; padding: 4px 6px; }
 .thumbs img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; opacity: 0.7; cursor: pointer; }
@@ -382,27 +385,7 @@ nav a.active .badge { background: #555; color: #fff; }
   <div style="background:#4a2a2a;color:#f99;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;">エラー: <?= htmlspecialchars($_GET["error"]) ?></div>
 <?php endif; ?>
 <?php if ($stage === "draft"): ?>
-  <div class="create-form">
-    <h2>+ 新規ドラフト</h2>
-    <form method="post" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-      <input type="hidden" name="action" value="create_draft">
-      <label>アカウント</label>
-      <select name="account_name" required>
-        <?php foreach (array_keys($accounts) as $name): ?>
-          <option value="<?= htmlspecialchars($name) ?>">@<?= htmlspecialchars($name) ?></option>
-        <?php endforeach; ?>
-      </select>
-      <label>画像（複数選択可・最大10枚）</label>
-      <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" required multiple onchange="previewFiles(this)">
-      <div id="previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
-      <label>キャプション</label>
-      <textarea name="caption" placeholder="キャプションを入力..."></textarea>
-      <label>送信予定日時（任意）</label>
-      <input type="datetime-local" name="scheduled_at" id="scheduled_at" min="" style="width:100%;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:8px;font-size:13px;margin-bottom:12px;color-scheme:dark;">
-      <button class="btn-create" type="submit">ドラフト作成</button>
-    </form>
-  </div>
+  <button class="btn-new-draft" onclick="openModal()">+ 新規Draft</button>
 <?php endif; ?>
 <?php if (empty($posts)): ?>
   <div class="empty">投稿なし</div>
@@ -498,6 +481,31 @@ nav a.active .badge { background: #555; color: #fff; }
 <?php endif; ?>
 </div>
 
+<div class="modal-overlay" id="draft-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <span class="close" onclick="closeModal()">✕</span>
+    <h2>+ 新規Draft</h2>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+      <input type="hidden" name="action" value="create_draft">
+      <label>アカウント</label>
+      <select name="account_name" required>
+        <?php foreach (array_keys($accounts) as $name): ?>
+          <option value="<?= htmlspecialchars($name) ?>">@<?= htmlspecialchars($name) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <label>画像（複数選択可・最大10枚）</label>
+      <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" required multiple onchange="previewFiles(this)">
+      <div id="previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <label>キャプション</label>
+      <textarea name="caption" placeholder="キャプションを入力..."></textarea>
+      <label>送信予定日時（任意）</label>
+      <input type="datetime-local" name="scheduled_at" id="scheduled_at" min="" style="width:100%;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:8px;font-size:13px;margin-bottom:12px;color-scheme:dark;">
+      <button class="btn-create" type="submit">ドラフト作成</button>
+    </form>
+  </div>
+</div>
+
 <div class="lightbox" id="lb" onclick="if(event.target===this)closeLb()">
   <span class="close" onclick="closeLb()">✕</span>
   <span class="lb-nav lb-prev" onclick="lbNav(-1)">‹</span>
@@ -546,15 +554,18 @@ function previewFiles(input) {
     reader.readAsDataURL(file);
   });
 }
+function openModal() { document.getElementById('draft-modal').classList.add('active'); updateScheduleMin(); }
+function closeModal() { document.getElementById('draft-modal').classList.remove('active'); }
 function toggleEdit(id) {
   document.getElementById(id).classList.toggle('active');
 }
-// Set min to now for scheduled_at
-var sa = document.getElementById('scheduled_at');
-if (sa) {
-  var now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  sa.min = now.toISOString().slice(0, 16);
+function updateScheduleMin() {
+  var sa = document.getElementById('scheduled_at');
+  if (sa) {
+    var now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    sa.min = now.toISOString().slice(0, 16);
+  }
 }
 </script>
 </body>
