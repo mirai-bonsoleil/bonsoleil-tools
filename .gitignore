@@ -1,0 +1,5 @@
+ig_hosting/*.png
+ig_hosting/*.jpg
+ig_hosting/*.webp
+ig_scheduler/data/*.json
+.htpasswd
