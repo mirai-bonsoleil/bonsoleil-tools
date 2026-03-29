@@ -142,7 +142,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $tk = $acct["access_token"];
 
         // Step 1: Create media container
-        $ch = curl_init("https://graph.facebook.com/v22.0/{$ig_id}/media");
+        $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media");
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
@@ -162,7 +162,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         // Step 2: Publish
-        $ch = curl_init("https://graph.facebook.com/v22.0/{$ig_id}/media_publish");
+        $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media_publish");
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
