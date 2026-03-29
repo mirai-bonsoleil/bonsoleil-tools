@@ -67,6 +67,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
+    if ($action === "edit" && $id && in_array($from, ["draft", "schedule"])) {
+        $raw = file_get_contents("$data_dir/$from.json");
+        if ($raw === false) { http_response_code(500); exit("Data file not found"); }
+        $data = json_decode($raw, true) ?? ["posts" => []];
+        foreach ($data["posts"] as &$p) {
+            if ($p["id"] === $id) {
+                $p["caption"] = trim($_POST["caption"] ?? $p["caption"]);
+                $sa = trim($_POST["scheduled_at"] ?? "");
+                $p["scheduled_at"] = ($sa && strtotime($sa) > time()) ? $sa : ($p["scheduled_at"] ?? null);
+                break;
+            }
+        }
+        unset($p);
+        file_put_contents("$data_dir/$from.json", json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        header("Location: ?stage=$from");
+        exit;
+    }
+
     if ($action === "create_draft" && isset($_FILES["images"])) {
         $caption = trim($_POST["caption"] ?? "");
         $acct_name = $_POST["account_name"] ?? "";
@@ -320,6 +338,12 @@ nav a.active .badge { background: #555; color: #fff; }
 .btn-move { background: #2a4a2a; color: #7c7; }
 .btn-delete { background: #4a2a2a; color: #c77; }
 .btn-publish { background: #2a3a5a; color: #7ad; }
+.btn-edit { background: #3a3a2a; color: #cc7; }
+.edit-form { display: none; padding: 8px 0 0; }
+.edit-form.active { display: block; }
+.edit-form textarea { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 12px; min-height: 60px; resize: vertical; font-family: sans-serif; margin-bottom: 6px; }
+.edit-form input[type="datetime-local"] { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 12px; margin-bottom: 6px; color-scheme: dark; }
+.edit-form .btn-save { background: #2a4a2a; color: #7c7; font-size: 11px; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; }
 .empty { color: #555; text-align: center; padding: 60px 0; font-size: 14px; }
 .create-form { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .create-form h2 { font-size: 14px; color: #aaa; margin-bottom: 12px; }
@@ -450,7 +474,23 @@ nav a.active .badge { background: #555; color: #fff; }
               <button class="btn btn-publish" type="submit">投稿</button>
             </form>
           <?php endif; ?>
+          <?php if ($stage !== "posted"): ?>
+            <button class="btn btn-edit" type="button" onclick="toggleEdit('ef-<?= htmlspecialchars($id) ?>')">編集</button>
+          <?php endif; ?>
         </div>
+        <?php if ($stage !== "posted"): ?>
+        <div class="edit-form" id="ef-<?= htmlspecialchars($id) ?>">
+          <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="id" value="<?= htmlspecialchars($id) ?>">
+            <input type="hidden" name="from" value="<?= $stage ?>">
+            <textarea name="caption"><?= htmlspecialchars($cap) ?></textarea>
+            <input type="datetime-local" name="scheduled_at" value="<?= htmlspecialchars($scheduled_at) ?>">
+            <button class="btn-save" type="submit">保存</button>
+          </form>
+        </div>
+        <?php endif; ?>
       </div>
     </div>
   <?php endforeach; ?>
@@ -505,6 +545,9 @@ function previewFiles(input) {
     };
     reader.readAsDataURL(file);
   });
+}
+function toggleEdit(id) {
+  document.getElementById(id).classList.toggle('active');
 }
 // Set min to now for scheduled_at
 var sa = document.getElementById('scheduled_at');
