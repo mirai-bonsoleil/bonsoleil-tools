@@ -67,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
-    if ($action === "create_draft" && isset($_FILES["image"]) && $_FILES["image"]["error"] === UPLOAD_ERR_OK) {
+    if ($action === "create_draft" && isset($_FILES["images"])) {
         $caption = trim($_POST["caption"] ?? "");
         $acct_name = $_POST["account_name"] ?? "";
         if (!$acct_name || !isset($accounts[$acct_name])) {
@@ -75,41 +75,48 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit;
         }
 
-        // Validate image
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file($_FILES["image"]["tmp_name"]);
         $allowed = ["image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp"];
-        if (!isset($allowed[$mime])) {
-            header("Location: ?stage=draft&error=" . urlencode("unsupported image format"));
-            exit;
-        }
-
-        // Generate ID and filename
-        $post_id = "draft_" . time();
-        $ext = $allowed[$mime];
-        $filename = $post_id . "." . $ext;
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
         $hosting_dir = __DIR__ . "/../ig_hosting";
-        $dest = $hosting_dir . "/" . $filename;
-
-        if (!move_uploaded_file($_FILES["image"]["tmp_name"], $dest)) {
-            header("Location: ?stage=draft&error=" . urlencode("upload failed"));
-            exit;
-        }
-
-        // Build image URL
         $scheme = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off") ? "https" : "http";
         $host = $_SERVER["HTTP_HOST"];
         $base = dirname(dirname($_SERVER["SCRIPT_NAME"]));
-        $image_url = "$scheme://$host$base/ig_hosting/$filename";
+        $post_id = "draft_" . time();
+        $image_urls = [];
 
-        // Add to draft.json
+        $file_count = count($_FILES["images"]["name"]);
+        if ($file_count < 1 || $_FILES["images"]["error"][0] !== UPLOAD_ERR_OK) {
+            header("Location: ?stage=draft&error=" . urlencode("no image selected"));
+            exit;
+        }
+        if ($file_count > 10) {
+            header("Location: ?stage=draft&error=" . urlencode("max 10 images"));
+            exit;
+        }
+
+        for ($i = 0; $i < $file_count; $i++) {
+            if ($_FILES["images"]["error"][$i] !== UPLOAD_ERR_OK) continue;
+            $mime = $finfo->file($_FILES["images"]["tmp_name"][$i]);
+            if (!isset($allowed[$mime])) {
+                header("Location: ?stage=draft&error=" . urlencode("unsupported format: " . $_FILES["images"]["name"][$i]));
+                exit;
+            }
+            $ext = $allowed[$mime];
+            $filename = $post_id . "_" . $i . "." . $ext;
+            if (!move_uploaded_file($_FILES["images"]["tmp_name"][$i], "$hosting_dir/$filename")) {
+                header("Location: ?stage=draft&error=" . urlencode("upload failed"));
+                exit;
+            }
+            $image_urls[] = "$scheme://$host$base/ig_hosting/$filename";
+        }
+
         $draft_path = "$data_dir/draft.json";
         $draft = json_decode(file_get_contents($draft_path), true) ?? ["posts" => []];
         $draft["posts"][] = [
             "id" => $post_id,
             "account_name" => $acct_name,
             "caption" => $caption,
-            "image_urls" => [$image_url],
+            "image_urls" => $image_urls,
             "created_at" => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
         ];
         file_put_contents($draft_path, json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
@@ -129,8 +136,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if ($post === null) { header("Location: ?stage=schedule"); exit; }
 
         $caption = $post["caption"] ?? "";
-        $image_url = ($post["image_urls"] ?? [])[0] ?? "";
-        if (!$image_url) { header("Location: ?stage=schedule&error=no_image"); exit; }
+        $image_urls = $post["image_urls"] ?? [];
+        if (empty($image_urls)) { header("Location: ?stage=schedule&error=no_image"); exit; }
 
         $acct_name = $post["account_name"] ?? "";
         if (!$acct_name || !isset($accounts[$acct_name])) {
@@ -140,28 +147,87 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $acct = $accounts[$acct_name];
         $ig_id = $acct["ig_account_id"];
         $tk = $acct["access_token"];
+        $is_carousel = count($image_urls) > 1;
 
-        // Step 1: Create media container
-        $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media");
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => http_build_query([
-                "image_url"    => $image_url,
-                "caption"      => $caption,
-                "access_token" => $tk,
-            ]),
-            CURLOPT_RETURNTRANSFER => true,
-        ]);
-        $res = json_decode(curl_exec($ch), true);
-        curl_close($ch);
-        $creation_id = $res["id"] ?? null;
+        if ($is_carousel) {
+            // Carousel: create child containers
+            $children = [];
+            foreach ($image_urls as $img_url) {
+                $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media");
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => http_build_query([
+                        "image_url"      => $img_url,
+                        "is_carousel_item" => "true",
+                        "access_token"   => $tk,
+                    ]),
+                    CURLOPT_RETURNTRANSFER => true,
+                ]);
+                $res = json_decode(curl_exec($ch), true);
+                curl_close($ch);
+                if (empty($res["id"])) {
+                    $err = urlencode($res["error"]["message"] ?? "child container failed");
+                    header("Location: ?stage=schedule&error=$err");
+                    exit;
+                }
+                $children[] = $res["id"];
+            }
+
+            // Wait for all children
+            foreach ($children as $child_id) {
+                for ($i = 0; $i < 10; $i++) {
+                    sleep(2);
+                    $ch = curl_init("https://graph.instagram.com/v22.0/{$child_id}?fields=status_code&access_token={$tk}");
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    $status = json_decode(curl_exec($ch), true);
+                    curl_close($ch);
+                    if (($status["status_code"] ?? "") === "FINISHED") break;
+                    if (($status["status_code"] ?? "") === "ERROR") {
+                        header("Location: ?stage=schedule&error=" . urlencode("child container error"));
+                        exit;
+                    }
+                }
+            }
+
+            // Create carousel container
+            $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media");
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => http_build_query([
+                    "media_type"   => "CAROUSEL",
+                    "children"     => implode(",", $children),
+                    "caption"      => $caption,
+                    "access_token" => $tk,
+                ]),
+                CURLOPT_RETURNTRANSFER => true,
+            ]);
+            $res = json_decode(curl_exec($ch), true);
+            curl_close($ch);
+            $creation_id = $res["id"] ?? null;
+        } else {
+            // Single image
+            $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media");
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => http_build_query([
+                    "image_url"    => $image_urls[0],
+                    "caption"      => $caption,
+                    "access_token" => $tk,
+                ]),
+                CURLOPT_RETURNTRANSFER => true,
+            ]);
+            $res = json_decode(curl_exec($ch), true);
+            curl_close($ch);
+            $creation_id = $res["id"] ?? null;
+        }
+
         if (!$creation_id) {
             $err = urlencode($res["error"]["message"] ?? "container failed");
             header("Location: ?stage=schedule&error=$err");
             exit;
         }
 
-        // Step 2: Wait for container to be ready
+        // Wait for container to be ready
         for ($i = 0; $i < 10; $i++) {
             sleep(2);
             $ch = curl_init("https://graph.instagram.com/v22.0/{$creation_id}?fields=status_code&access_token={$tk}");
@@ -175,7 +241,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
-        // Step 3: Publish
+        // Publish
         $ch = curl_init("https://graph.instagram.com/v22.0/{$ig_id}/media_publish");
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
@@ -293,9 +359,9 @@ nav a.active .badge { background: #555; color: #fff; }
           <option value="<?= htmlspecialchars($name) ?>">@<?= htmlspecialchars($name) ?></option>
         <?php endforeach; ?>
       </select>
-      <label>画像</label>
-      <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required onchange="previewFile(this)">
-      <img class="preview-img" id="preview">
+      <label>画像（複数選択可・最大10枚）</label>
+      <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" required multiple onchange="previewFiles(this)">
+      <div id="previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
       <label>キャプション</label>
       <textarea name="caption" placeholder="キャプションを入力..."></textarea>
       <button class="btn-create" type="submit">ドラフト作成</button>
@@ -319,7 +385,12 @@ nav a.active .badge { background: #555; color: #fff; }
     ?>
     <div class="card">
       <?php if ($img): ?>
-        <img src="<?= htmlspecialchars($img) ?>" onclick="openLb(this.src)" loading="lazy">
+        <div style="position:relative">
+          <img src="<?= htmlspecialchars($img) ?>" onclick="openLb(this.src)" loading="lazy">
+          <?php if (count($imgs) > 1): ?>
+            <span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;"><?= count($imgs) ?>枚</span>
+          <?php endif; ?>
+        </div>
       <?php endif; ?>
       <div class="body">
         <?php if ($acct_name): ?><div class="meta">@<?= htmlspecialchars($acct_name) ?></div><?php endif; ?>
@@ -369,13 +440,20 @@ nav a.active .badge { background: #555; color: #fff; }
 <script>
 function openLb(src) { document.getElementById('lb-img').src = src; document.getElementById('lb').classList.add('active'); }
 function closeLb() { document.getElementById('lb').classList.remove('active'); }
-function previewFile(input) {
-  var preview = document.getElementById('preview');
-  if (input.files && input.files[0]) {
+function previewFiles(input) {
+  var container = document.getElementById('previews');
+  container.innerHTML = '';
+  if (!input.files) return;
+  Array.from(input.files).forEach(function(file) {
     var reader = new FileReader();
-    reader.onload = function(e) { preview.src = e.target.result; preview.style.display = 'block'; };
-    reader.readAsDataURL(input.files[0]);
-  } else { preview.style.display = 'none'; }
+    reader.onload = function(e) {
+      var img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.cssText = 'max-width:120px;max-height:150px;border-radius:6px;object-fit:cover;';
+      container.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 </script>
 </body>
