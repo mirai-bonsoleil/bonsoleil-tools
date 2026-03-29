@@ -1,6 +1,12 @@
 <?php
 return [
-    'account_name'  => 'your_account_name',
-    'ig_account_id' => 'YOUR_IG_BUSINESS_ACCOUNT_ID',
-    'access_token'  => 'YOUR_ACCESS_TOKEN',
+    'your_account_name' => [
+        'ig_account_id' => 'YOUR_IG_BUSINESS_ACCOUNT_ID',
+        'access_token'  => 'YOUR_ACCESS_TOKEN',
+    ],
+    // 複数アカウントを登録可能
+    // 'another_account' => [
+    //     'ig_account_id' => '...',
+    //     'access_token'  => '...',
+    // ],
 ];

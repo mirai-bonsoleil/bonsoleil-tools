@@ -1,6 +1,6 @@
 <?php
 session_start();
-$config = require __DIR__ . "/config.php";
+$accounts = require __DIR__ . "/config.php";
 if (empty($_SESSION["csrf_token"])) {
     $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
 }
@@ -82,8 +82,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $image_url = ($post["image_urls"] ?? [])[0] ?? "";
         if (!$image_url) { header("Location: ?stage=schedule&error=no_image"); exit; }
 
-        $ig_id = $config["ig_account_id"];
-        $tk = $config["access_token"];
+        $acct_name = $post["account_name"] ?? "";
+        if (!$acct_name || !isset($accounts[$acct_name])) {
+            header("Location: ?stage=schedule&error=" . urlencode("unknown account: $acct_name"));
+            exit;
+        }
+        $acct = $accounts[$acct_name];
+        $ig_id = $acct["ig_account_id"];
+        $tk = $acct["access_token"];
 
         // Step 1: Create media container
         $ch = curl_init("https://graph.facebook.com/v22.0/{$ig_id}/media");
@@ -206,12 +212,14 @@ nav a.active .badge { background: #555; color: #fff; }
       $img = is_array($imgs) ? ($imgs[0] ?? '') : $imgs;
       $img = str_replace('/var/www/bizeny/', 'https://bizeny.bon-soleil.com/', $img);
       $posted_at = $post['posted_at'] ?? '';
+      $acct_name = $post['account_name'] ?? '';
     ?>
     <div class="card">
       <?php if ($img): ?>
         <img src="<?= htmlspecialchars($img) ?>" onclick="openLb(this.src)" loading="lazy">
       <?php endif; ?>
       <div class="body">
+        <?php if ($acct_name): ?><div class="meta">@<?= htmlspecialchars($acct_name) ?></div><?php endif; ?>
         <div class="caption"><?= htmlspecialchars($cap) ?></div>
         <?php if ($posted_at): ?><div class="meta">📅 <?= htmlspecialchars($posted_at) ?></div><?php endif; ?>
         <div class="actions">
