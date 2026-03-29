@@ -67,6 +67,56 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
+    if ($action === "create_draft" && isset($_FILES["image"]) && $_FILES["image"]["error"] === UPLOAD_ERR_OK) {
+        $caption = trim($_POST["caption"] ?? "");
+        $acct_name = $_POST["account_name"] ?? "";
+        if (!$acct_name || !isset($accounts[$acct_name])) {
+            header("Location: ?stage=draft&error=" . urlencode("invalid account"));
+            exit;
+        }
+
+        // Validate image
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($_FILES["image"]["tmp_name"]);
+        $allowed = ["image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp"];
+        if (!isset($allowed[$mime])) {
+            header("Location: ?stage=draft&error=" . urlencode("unsupported image format"));
+            exit;
+        }
+
+        // Generate ID and filename
+        $post_id = "draft_" . time();
+        $ext = $allowed[$mime];
+        $filename = $post_id . "." . $ext;
+        $hosting_dir = __DIR__ . "/../ig_hosting";
+        $dest = $hosting_dir . "/" . $filename;
+
+        if (!move_uploaded_file($_FILES["image"]["tmp_name"], $dest)) {
+            header("Location: ?stage=draft&error=" . urlencode("upload failed"));
+            exit;
+        }
+
+        // Build image URL
+        $scheme = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off") ? "https" : "http";
+        $host = $_SERVER["HTTP_HOST"];
+        $base = dirname(dirname($_SERVER["SCRIPT_NAME"]));
+        $image_url = "$scheme://$host$base/ig_hosting/$filename";
+
+        // Add to draft.json
+        $draft_path = "$data_dir/draft.json";
+        $draft = json_decode(file_get_contents($draft_path), true) ?? ["posts" => []];
+        $draft["posts"][] = [
+            "id" => $post_id,
+            "account_name" => $acct_name,
+            "caption" => $caption,
+            "image_urls" => [$image_url],
+            "created_at" => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+        ];
+        file_put_contents($draft_path, json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        header("Location: ?stage=draft");
+        exit;
+    }
+
     if ($action === "publish" && $id && $from === "schedule") {
         $raw = file_get_contents("$data_dir/schedule.json");
         if ($raw === false) { http_response_code(500); exit("Data file not found"); }
@@ -182,6 +232,15 @@ nav a.active .badge { background: #555; color: #fff; }
 .btn-delete { background: #4a2a2a; color: #c77; }
 .btn-publish { background: #2a3a5a; color: #7ad; }
 .empty { color: #555; text-align: center; padding: 60px 0; font-size: 14px; }
+.create-form { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.create-form h2 { font-size: 14px; color: #aaa; margin-bottom: 12px; }
+.create-form label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+.create-form select,
+.create-form textarea,
+.create-form input[type="file"] { width: 100%; background: #111; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 8px; font-size: 13px; margin-bottom: 12px; font-family: sans-serif; }
+.create-form textarea { min-height: 100px; resize: vertical; }
+.create-form .preview-img { max-width: 200px; max-height: 250px; border-radius: 6px; margin-bottom: 12px; display: none; }
+.btn-create { background: #2a4a2a; color: #7c7; font-size: 13px; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; }
 .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 100; align-items: center; justify-content: center; }
 .lightbox.active { display: flex; }
 .lightbox img { max-height: 90vh; max-width: 90vw; object-fit: contain; border-radius: 8px; }
@@ -198,7 +257,28 @@ nav a.active .badge { background: #555; color: #fff; }
 </nav>
 <div class="container">
 <?php if (!empty($_GET["error"])): ?>
-  <div style="background:#4a2a2a;color:#f99;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;">投稿エラー: <?= htmlspecialchars($_GET["error"]) ?></div>
+  <div style="background:#4a2a2a;color:#f99;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;">エラー: <?= htmlspecialchars($_GET["error"]) ?></div>
+<?php endif; ?>
+<?php if ($stage === "draft"): ?>
+  <div class="create-form">
+    <h2>+ 新規ドラフト</h2>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+      <input type="hidden" name="action" value="create_draft">
+      <label>アカウント</label>
+      <select name="account_name" required>
+        <?php foreach (array_keys($accounts) as $name): ?>
+          <option value="<?= htmlspecialchars($name) ?>">@<?= htmlspecialchars($name) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <label>画像</label>
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required onchange="previewFile(this)">
+      <img class="preview-img" id="preview">
+      <label>キャプション</label>
+      <textarea name="caption" placeholder="キャプションを入力..."></textarea>
+      <button class="btn-create" type="submit">ドラフト作成</button>
+    </form>
+  </div>
 <?php endif; ?>
 <?php if (empty($posts)): ?>
   <div class="empty">投稿なし</div>
@@ -266,6 +346,14 @@ nav a.active .badge { background: #555; color: #fff; }
 <script>
 function openLb(src) { document.getElementById('lb-img').src = src; document.getElementById('lb').classList.add('active'); }
 function closeLb() { document.getElementById('lb').classList.remove('active'); }
+function previewFile(input) {
+  var preview = document.getElementById('preview');
+  if (input.files && input.files[0]) {
+    var reader = new FileReader();
+    reader.onload = function(e) { preview.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(input.files[0]);
+  } else { preview.style.display = 'none'; }
+}
 </script>
 </body>
 </html>
