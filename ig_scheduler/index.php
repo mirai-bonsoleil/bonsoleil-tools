@@ -118,7 +118,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "caption" => $caption,
             "image_urls" => $image_urls,
             "created_at" => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
-            "scheduled_at" => trim($_POST["scheduled_at"] ?? "") ?: null,
+            "scheduled_at" => (($sa = trim($_POST["scheduled_at"] ?? "")) && strtotime($sa) > time()) ? $sa : null,
         ];
         file_put_contents($draft_path, json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         header("Location: ?stage=draft");
@@ -375,7 +375,7 @@ nav a.active .badge { background: #555; color: #fff; }
       <label>キャプション</label>
       <textarea name="caption" placeholder="キャプションを入力..."></textarea>
       <label>送信予定日時（任意）</label>
-      <input type="datetime-local" name="scheduled_at" style="width:100%;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:8px;font-size:13px;margin-bottom:12px;">
+      <input type="datetime-local" name="scheduled_at" id="scheduled_at" min="" style="width:100%;background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:8px;font-size:13px;margin-bottom:12px;color-scheme:dark;">
       <button class="btn-create" type="submit">ドラフト作成</button>
     </form>
   </div>
@@ -505,6 +505,13 @@ function previewFiles(input) {
     };
     reader.readAsDataURL(file);
   });
+}
+// Set min to now for scheduled_at
+var sa = document.getElementById('scheduled_at');
+if (sa) {
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  sa.min = now.toISOString().slice(0, 16);
 }
 </script>
 </body>
