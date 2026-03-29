@@ -202,7 +202,7 @@ nav a.active .badge { background: #555; color: #fff; }
     <?php
       $id  = $post['id'] ?? '';
       $cap = $post['caption'] ?? '';
-      $imgs = $post['image_urls'] ?? $post['images'] ?? [];
+      $imgs = $post['image_urls'] ?? [];
       $img = is_array($imgs) ? ($imgs[0] ?? '') : $imgs;
       $img = str_replace('/var/www/bizeny/', 'https://bizeny.bon-soleil.com/', $img);
       $posted_at = $post['posted_at'] ?? '';
