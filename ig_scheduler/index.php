@@ -8,6 +8,7 @@ $csrf_token = $_SESSION["csrf_token"];
 $stages = ["draft", "schedule", "posted"];
 $stage  = in_array($_GET["stage"] ?? "", $stages) ? $_GET["stage"] : "schedule";
 $data_dir = __DIR__ . "/data";
+$move_targets = ["draft" => ["schedule"], "schedule" => ["draft", "posted"], "posted" => []];
 
 // 移動処理
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -55,8 +56,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 }
-
-$move_targets = ["draft" => ["schedule"], "schedule" => ["draft", "posted"], "posted" => []];
 
 $data  = json_decode(file_get_contents("$data_dir/$stage.json"), true);
 $posts = $data["posts"] ?? [];
@@ -140,7 +139,7 @@ nav a.active .badge { background: #555; color: #fff; }
               <input type="hidden" name="id" value="<?= htmlspecialchars($id) ?>">
               <input type="hidden" name="from" value="<?= $stage ?>">
               <input type="hidden" name="to" value="<?= $target ?>">
-              <button class="btn btn-move" type="submit">→ <?= $stage_labels[$target] ?></button>
+              <button class="btn btn-move" type="submit"><?= array_search($target, $stages) < array_search($stage, $stages) ? "←" : "→" ?> <?= $stage_labels[$target] ?></button>
             </form>
           <?php endforeach; ?>
           <?php if ($stage !== 'posted'): ?>
