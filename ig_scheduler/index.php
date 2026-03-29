@@ -11,6 +11,18 @@ $stage  = in_array($_GET["stage"] ?? "", $stages) ? $_GET["stage"] : "schedule";
 $data_dir = __DIR__ . "/data";
 $move_targets = ["draft" => ["schedule"], "schedule" => ["draft", "posted"], "posted" => ["schedule"]];
 
+function save_stage($path, $data) {
+    usort($data["posts"], function($a, $b) {
+        $sa = $a["scheduled_at"] ?? "";
+        $sb = $b["scheduled_at"] ?? "";
+        if ($sa === "" && $sb === "") return 0;
+        if ($sa === "") return 1;
+        if ($sb === "") return -1;
+        return strcmp($sa, $sb);
+    });
+    file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+}
+
 // 移動処理
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // CSRF検証
@@ -40,8 +52,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             } else {
                 $to_data["posts"][] = $post;
             }
-            file_put_contents("$data_dir/$from.json", json_encode($from_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-            file_put_contents("$data_dir/$to.json",   json_encode($to_data,   JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            save_stage("$data_dir/$from.json", $from_data);
+            save_stage("$data_dir/$to.json", $to_data);
         }
         header("Location: ?stage=$to");
         exit;
@@ -62,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
         $data["posts"] = array_values(array_filter($data["posts"], fn($p) => $p["id"] !== $id));
-        file_put_contents("$data_dir/$from.json", json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        save_stage("$data_dir/$from.json", $data);
         header("Location: ?stage=$from");
         exit;
     }
@@ -80,7 +92,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
         unset($p);
-        file_put_contents("$data_dir/$from.json", json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        save_stage("$data_dir/$from.json", $data);
         header("Location: ?stage=$from");
         exit;
     }
@@ -138,7 +150,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "created_at" => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
             "scheduled_at" => (($sa = trim($_POST["scheduled_at"] ?? "")) && strtotime($sa) > time()) ? $sa : null,
         ];
-        file_put_contents($draft_path, json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        save_stage($draft_path, $draft);
         header("Location: ?stage=draft");
         exit;
     }
@@ -290,10 +302,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $post["ig_media_id"] = $media_id;
         $post["permalink"] = $pres["permalink"] ?? "";
         array_splice($sched["posts"], $idx, 1);
-        file_put_contents("$data_dir/schedule.json", json_encode($sched, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        save_stage("$data_dir/schedule.json", $sched);
         $posted = json_decode(file_get_contents("$data_dir/posted.json"), true) ?? ["posts" => []];
         array_unshift($posted["posts"], $post);
-        file_put_contents("$data_dir/posted.json", json_encode($posted, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        save_stage("$data_dir/posted.json", $posted);
         header("Location: ?stage=posted");
         exit;
     }
