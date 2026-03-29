@@ -62,7 +62,7 @@ if (!$account_name || !isset($config[$account_name])) {
 // 画像アップロード
 $allowed = ["image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp"];
 $finfo = new finfo(FILEINFO_MIME_TYPE);
-$post_id = "api_" . time() . "_" . bin2hex(random_bytes(4));
+$post_id = !empty($_POST["post_id"]) ? preg_replace("/[^a-zA-Z0-9_-]/", "", $_POST["post_id"]) : "api_" . time() . "_" . bin2hex(random_bytes(4));
 $image_urls = [];
 
 $files = $_FILES["images"] ?? null;
