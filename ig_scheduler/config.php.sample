@@ -1,0 +1,6 @@
+<?php
+return [
+    'account_name'  => 'your_account_name',
+    'ig_account_id' => 'YOUR_IG_BUSINESS_ACCOUNT_ID',
+    'access_token'  => 'YOUR_ACCESS_TOKEN',
+];
