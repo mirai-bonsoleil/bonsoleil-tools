@@ -494,8 +494,10 @@ nav a.active .badge { background: #555; color: #fff; }
           <option value="<?= htmlspecialchars($name) ?>">@<?= htmlspecialchars($name) ?></option>
         <?php endforeach; ?>
       </select>
-      <label>画像（複数選択可・最大10枚）</label>
-      <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" required multiple onchange="previewFiles(this)">
+      <label>画像（最大10枚）</label>
+      <input type="file" id="file-picker" accept="image/jpeg,image/png,image/webp" multiple onchange="addFiles(this)" style="display:none;">
+      <input type="file" name="images[]" id="file-submit" multiple style="display:none;">
+      <button type="button" class="btn-create" style="margin-bottom:8px;" onclick="document.getElementById('file-picker').click()">+ 画像を追加</button>
       <div id="previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
       <label>キャプション</label>
       <textarea name="caption" placeholder="キャプションを入力..."></textarea>
@@ -539,22 +541,49 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowRight') lbNav(1);
   if (e.key === 'Escape') closeLb();
 });
-function previewFiles(input) {
+var collectedFiles = [];
+function addFiles(input) {
+  if (!input.files) return;
+  Array.from(input.files).forEach(function(f) {
+    if (collectedFiles.length < 10) collectedFiles.push(f);
+  });
+  input.value = '';
+  renderPreviews();
+  syncFiles();
+}
+function removeFile(idx) {
+  collectedFiles.splice(idx, 1);
+  renderPreviews();
+  syncFiles();
+}
+function syncFiles() {
+  var dt = new DataTransfer();
+  collectedFiles.forEach(function(f) { dt.items.add(f); });
+  document.getElementById('file-submit').files = dt.files;
+}
+function renderPreviews() {
   var container = document.getElementById('previews');
   container.innerHTML = '';
-  if (!input.files) return;
-  Array.from(input.files).forEach(function(file) {
+  collectedFiles.forEach(function(file, idx) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-block;';
     var reader = new FileReader();
     reader.onload = function(e) {
       var img = document.createElement('img');
       img.src = e.target.result;
-      img.style.cssText = 'max-width:120px;max-height:150px;border-radius:6px;object-fit:cover;';
-      container.appendChild(img);
+      img.style.cssText = 'width:80px;height:80px;border-radius:6px;object-fit:cover;display:block;';
+      wrap.appendChild(img);
+      var btn = document.createElement('span');
+      btn.textContent = '✕';
+      btn.style.cssText = 'position:absolute;top:-4px;right:-4px;background:#c44;color:#fff;width:18px;height:18px;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+      btn.onclick = function() { removeFile(idx); };
+      wrap.appendChild(btn);
     };
     reader.readAsDataURL(file);
+    container.appendChild(wrap);
   });
 }
-function openModal() { document.getElementById('draft-modal').classList.add('active'); updateScheduleMin(); }
+function openModal() { collectedFiles = []; renderPreviews(); syncFiles(); document.getElementById('draft-modal').classList.add('active'); updateScheduleMin(); }
 function closeModal() { document.getElementById('draft-modal').classList.remove('active'); }
 function toggleEdit(id) {
   document.getElementById(id).classList.toggle('active');
