@@ -193,9 +193,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit;
         }
 
+        // Get permalink
+        $media_id = $res["id"];
+        $ch = curl_init("https://graph.instagram.com/v22.0/{$media_id}?fields=permalink&access_token={$tk}");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $pres = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
         // Move to posted
         $post["posted_at"] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
-        $post["ig_media_id"] = $res["id"];
+        $post["ig_media_id"] = $media_id;
+        $post["permalink"] = $pres["permalink"] ?? "";
         array_splice($sched["posts"], $idx, 1);
         file_put_contents("$data_dir/schedule.json", json_encode($sched, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $posted = json_decode(file_get_contents("$data_dir/posted.json"), true) ?? ["posts" => []];
@@ -307,6 +315,7 @@ nav a.active .badge { background: #555; color: #fff; }
       $img = str_replace('/var/www/bizeny/', 'https://bizeny.bon-soleil.com/', $img);
       $posted_at = $post['posted_at'] ?? '';
       $acct_name = $post['account_name'] ?? '';
+      $permalink = $post['permalink'] ?? '';
     ?>
     <div class="card">
       <?php if ($img): ?>
@@ -315,7 +324,7 @@ nav a.active .badge { background: #555; color: #fff; }
       <div class="body">
         <?php if ($acct_name): ?><div class="meta">@<?= htmlspecialchars($acct_name) ?></div><?php endif; ?>
         <div class="caption"><?= htmlspecialchars($cap) ?></div>
-        <?php if ($posted_at): ?><div class="meta">📅 <?= htmlspecialchars($posted_at) ?></div><?php endif; ?>
+        <?php if ($posted_at): ?><div class="meta">📅 <?= htmlspecialchars($posted_at) ?><?php if ($permalink): ?> · <a href="<?= htmlspecialchars($permalink) ?>" target="_blank" style="color:#7ad;text-decoration:none;">IG↗</a><?php endif; ?></div><?php endif; ?>
         <div class="actions">
           <?php foreach ($move_targets[$stage] as $target): ?>
             <form method="post" style="display:inline">
