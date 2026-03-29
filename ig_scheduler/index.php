@@ -50,6 +50,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $raw = file_get_contents("$data_dir/$from.json");
         if ($raw === false) { http_response_code(500); exit("Data file not found"); }
         $data = json_decode($raw, true) ?? ["posts" => []];
+        $hosting_dir = __DIR__ . "/../ig_hosting";
+        foreach ($data["posts"] as $p) {
+            if ($p["id"] === $id) {
+                foreach ($p["image_urls"] ?? [] as $url) {
+                    $file = $hosting_dir . "/" . basename($url);
+                    if (is_file($file)) unlink($file);
+                }
+                break;
+            }
+        }
         $data["posts"] = array_values(array_filter($data["posts"], fn($p) => $p["id"] !== $id));
         file_put_contents("$data_dir/$from.json", json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         header("Location: ?stage=$from");
