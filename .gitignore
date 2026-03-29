@@ -4,3 +4,4 @@ ig_hosting/*.webp
 ig_scheduler/data/*.json
 .htpasswd
 ig_scheduler/config.php
+ig_scheduler/data/.*.swp
