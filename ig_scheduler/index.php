@@ -386,13 +386,13 @@ nav a.active .badge { background: #555; color: #fff; }
 </style>
 </head>
 <body>
-<nav>
+<nav style="display:flex;justify-content:space-between;align-items:center;"><div>
 <?php foreach ($stages as $s): ?>
   <a href="?stage=<?= $s ?>" class="<?= $s === $stage ? 'active' : '' ?>">
     <?= $stage_labels[$s] ?><span class="badge"><?= $counts[$s] ?></span>
   </a>
 <?php endforeach; ?>
-</nav>
+</div><a href="../ig_hosting/" style="font-size:12px;color:#888;text-decoration:none;padding:8px 12px;">ig_hosting →</a></nav>
 <div class="container">
 <?php if (!empty($_GET["error"])): ?>
   <div style="background:#4a2a2a;color:#f99;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;">エラー: <?= htmlspecialchars($_GET["error"]) ?></div>

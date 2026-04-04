@@ -1,2 +1,9 @@
-Satisfy any
-Allow from all
+AuthType Basic
+AuthName "ig_hosting"
+AuthUserFile /home/users/0/bon-soleil/web/bon-soleil.com/tools/.htpasswd
+Require valid-user
+
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+  Satisfy any
+  Allow from all
+</FilesMatch>
