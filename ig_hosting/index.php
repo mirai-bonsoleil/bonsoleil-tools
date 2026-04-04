@@ -1,15 +1,15 @@
 <?php
 $dir = __DIR__;
 $schedulerData = dirname($dir) . '/ig_scheduler/data/';
-$trushDir = $dir . '/trush/';
+$trashDir = $dir . '/trash/';
 
-// --- AJAX: trushに移動 ---
+// --- AJAX: trashに移動 ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'trash') {
     $filename = basename($_POST['filename'] ?? '');
     $filepath = $dir . '/' . $filename;
     if ($filename && is_file($filepath) && preg_match('/\.(jpg|jpeg|png)$/i', $filename)) {
-        if (!is_dir($trushDir)) mkdir($trushDir, 0755, true);
-        if (rename($filepath, $trushDir . $filename)) {
+        if (!is_dir($trashDir)) mkdir($trashDir, 0755, true);
+        if (rename($filepath, $trashDir . $filename)) {
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false, 'error' => 'Move failed']);
@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // --- AJAX: 物理削除 ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
     $filename = basename($_POST['filename'] ?? '');
-    $filepath = $trushDir . $filename;
+    $filepath = $trashDir . $filename;
     if ($filename && is_file($filepath) && preg_match('/\.(jpg|jpeg|png)$/i', $filename)) {
         if (unlink($filepath)) {
             echo json_encode(['ok' => true]);
@@ -55,10 +55,10 @@ $files = array_values(array_filter(glob($dir . '/*.{jpg,jpeg,png}', GLOB_BRACE),
 usort($files, fn($a, $b) => filemtime($b) - filemtime($a));
 $images = array_map('basename', $files);
 
-// --- trush内の画像 ---
-$trushFiles = is_dir($trushDir) ? array_values(array_filter(glob($trushDir . '*.{jpg,jpeg,png}', GLOB_BRACE), 'is_file')) : [];
-usort($trushFiles, fn($a, $b) => filemtime($b) - filemtime($a));
-$trushImages = array_map('basename', $trushFiles);
+// --- trash内の画像 ---
+$trashFiles = is_dir($trashDir) ? array_values(array_filter(glob($trashDir . '*.{jpg,jpeg,png}', GLOB_BRACE), 'is_file')) : [];
+usort($trashFiles, fn($a, $b) => filemtime($b) - filemtime($a));
+$trashImages = array_map('basename', $trashFiles);
 ?><!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -86,8 +86,8 @@ $trushImages = array_map('basename', $trushFiles);
   .lightbox img { max-height: 85vh; max-width: 90vw; object-fit: contain; border-radius: 8px; }
   .lightbox .lb-name { font-size: 12px; color: #aaa; }
   .lightbox .close { position: absolute; top: 16px; right: 20px; font-size: 24px; cursor: pointer; color: #fff; }
-  .section-trush { opacity: 0.5; margin-top: 32px; }
-  .section-trush h2 { color: #844; }
+  .section-trash { opacity: 0.5; margin-top: 32px; }
+  .section-trash h2 { color: #844; }
 </style>
 </head>
 <body>
@@ -105,19 +105,19 @@ $trushImages = array_map('basename', $trushFiles);
       <span class="badge managed">managed</span>
     <?php else: ?>
       <span class="badge unmanaged">unmanaged</span>
-      <button class="trash-btn" onclick="trashFile('<?= htmlspecialchars($name) ?>', this)" title="trushに移動">✕</button>
+      <button class="trash-btn" onclick="trashFile('<?= htmlspecialchars($name) ?>', this)" title="trashに移動">✕</button>
     <?php endif; ?>
   </div>
 <?php endforeach; ?>
 </div>
 
-<?php if (!empty($trushImages)): ?>
-<div class="section-trush">
-  <h2>trush — <?= count($trushImages) ?> files</h2>
+<?php if (!empty($trashImages)): ?>
+<div class="section-trash">
+  <h2>trash — <?= count($trashImages) ?> files</h2>
   <div class="grid">
-  <?php foreach ($trushImages as $name): ?>
+  <?php foreach ($trashImages as $name): ?>
     <div class="item">
-      <img src="trush/<?= htmlspecialchars($name) ?>" loading="lazy" onclick="openLb('trush/<?= htmlspecialchars($name) ?>')">
+      <img src="trash/<?= htmlspecialchars($name) ?>" loading="lazy" onclick="openLb('trash/<?= htmlspecialchars($name) ?>')">
       <div class="name"><?= htmlspecialchars($name) ?></div>
       <button class="delete-btn" onclick="deleteFile('<?= htmlspecialchars($name) ?>', this)" title="完全に削除">✕</button>
     </div>
@@ -146,7 +146,7 @@ document.getElementById('lb').addEventListener('click', e => {
 });
 
 function trashFile(filename, btn) {
-  if (!confirm(filename + ' をtrushに移動しますか？')) return;
+  if (!confirm(filename + ' をtrashに移動しますか？')) return;
   const item = btn.closest('.item');
   fetch('', {
     method: 'POST',

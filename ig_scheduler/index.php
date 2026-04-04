@@ -69,7 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($p["id"] === $id) {
                 foreach ($p["image_urls"] ?? [] as $url) {
                     $file = $hosting_dir . "/" . basename($url);
-                    if (is_file($file)) { $trush = $hosting_dir . "/trush/"; if (!is_dir($trush)) mkdir($trush, 0755, true); rename($file, $trush . basename($file)); }
+                    if (is_file($file)) { $trash = $hosting_dir . "/trash/"; if (!is_dir($trash)) mkdir($trash, 0755, true); rename($file, $trash . basename($file)); }
                 }
                 break;
             }
