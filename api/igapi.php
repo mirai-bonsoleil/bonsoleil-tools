@@ -106,7 +106,7 @@ $entry = [
     "caption"      => $caption,
     "image_urls"   => $image_urls,
     "created_at"   => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
-    "scheduled_at" => ($stage === "schedule" && $scheduled_at && strtotime($scheduled_at) > time()) ? $scheduled_at : null,
+    "scheduled_at" => ($scheduled_at && strtotime($scheduled_at) > time()) ? $scheduled_at : null,
 ];
 
 $data["posts"][] = $entry;
